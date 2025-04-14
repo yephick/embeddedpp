@@ -9,10 +9,57 @@
             "${env.ARMGCC_INSTALL_PATH}/lib/gcc/arm-none-eabi/${env.ARMGCC_VERSION}/include-fixed",
             "${workspaceRoot}\\**"
         ],
-        "defines": [
-            "__CYU3P_TX__=1",
-            "CYU3P_PROFILE_EN=1"
+      "defines": [
+        "__CYU3P_TX__=1",
+        "CYU3P_PROFILE_EN=1"
+      ],
+      "environments": [{"BLD_TYPE":  "ProfileRelease"}],
+      "intelliSenseMode": "linux-gcc-x64"
+    },
+    {
+      "name": "IoT-ProfileDebug",
+        "includePath": [
+            "${env.FX3_INSTALL_PATH}/fw_lib/1_3_5/inc",
+            "${env.ARMGCC_INSTALL_PATH}/arm-none-eabi/include",
+            "${env.ARMGCC_INSTALL_PATH}/lib/gcc/arm-none-eabi/${env.ARMGCC_VERSION}/include",
+            "${env.ARMGCC_INSTALL_PATH}/lib/gcc/arm-none-eabi/${env.ARMGCC_VERSION}/include-fixed",
+            "${workspaceRoot}\\**"
         ],
+      "defines": [
+        "__CYU3P_TX__=1",
+        "CYU3P_PROFILE_EN=1"
+      ],
+      "environments": [{"BLD_TYPE":  "ProfileDebug"}],
+      "intelliSenseMode": "linux-gcc-x64"
+    },
+    {
+      "name": "IoT-Release",
+        "includePath": [
+            "${env.FX3_INSTALL_PATH}/fw_lib/1_3_5/inc",
+            "${env.ARMGCC_INSTALL_PATH}/arm-none-eabi/include",
+            "${env.ARMGCC_INSTALL_PATH}/lib/gcc/arm-none-eabi/${env.ARMGCC_VERSION}/include",
+            "${env.ARMGCC_INSTALL_PATH}/lib/gcc/arm-none-eabi/${env.ARMGCC_VERSION}/include-fixed",
+            "${workspaceRoot}\\**"
+        ],
+      "defines": [
+        "__CYU3P_TX__=1"
+      ],
+      "environments": [{"BLD_TYPE":  "Release"}],
+      "intelliSenseMode": "linux-gcc-x64"
+    },
+    {
+      "name": "IoT-Debug",
+        "includePath": [
+            "${env.FX3_INSTALL_PATH}/fw_lib/1_3_5/inc",
+            "${env.ARMGCC_INSTALL_PATH}/arm-none-eabi/include",
+            "${env.ARMGCC_INSTALL_PATH}/lib/gcc/arm-none-eabi/${env.ARMGCC_VERSION}/include",
+            "${env.ARMGCC_INSTALL_PATH}/lib/gcc/arm-none-eabi/${env.ARMGCC_VERSION}/include-fixed",
+            "${workspaceRoot}\\**"
+        ],
+      "defines": [
+        "__CYU3P_TX__=1"
+      ],
+      "environments": [{"BLD_TYPE":  "Debug"}],
       "intelliSenseMode": "linux-gcc-x64"
     }
   ]
