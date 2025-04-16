@@ -10,6 +10,22 @@
       "type": "launch"
     },
     {
+      "taskLabel": "deploy to RAM",
+      "appliesTo": "/",
+      "args": ["deploy"],
+      "command": "cs-make.exe",
+      "inheritEnvironments": ["${cpp.activeConfiguration}"],
+      "type": "launch"
+    },
+    {
+      "taskLabel": "build all",
+      "appliesTo": "makefile",
+      "args": ["all -j8"],
+      "command": "cs-make.exe",
+      "inheritEnvironments": ["${cpp.activeConfiguration}"],
+      "contextType": "build"
+    },
+    {
       "taskLabel": "build all",
       "appliesTo": "/",
       "args": ["all -j8"],

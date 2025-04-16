@@ -141,6 +141,8 @@ CyFxUVCApplnDebugInit (void)
     {
         CyFxAppErrorHandler(apiRetStatus);
     }
+
+    CyU3PDebugPrint(1, "Hello, world!\r\n");
 }
 
 /* This function starts the video streaming application. It is called
@@ -594,6 +596,7 @@ UVCAppThread_Entry (
         /* Video streamer application. */
         while (glIsApplnActive)
         {
+            CyU3PThreadSleep(250);
             /* Wait for a free buffer. */
             status = CyU3PDmaChannelGetBuffer (&glChHandleUVCStream,
                     &dmaBuffer,  CYU3P_WAIT_FOREVER);

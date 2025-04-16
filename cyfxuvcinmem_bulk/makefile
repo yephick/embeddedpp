@@ -52,39 +52,31 @@ endif
 
 # Each subdirectory must supply rules for building sources it contributes
 $(TGT_DIR)/%.S.o: ./%.S makefile
-	@echo 'Building file: $<'
-	@echo 'Invoking: Cross ARM GNU Assembler'
+	@echo $<
 	@$(dir_guard)
-	$(CC) $(ASM_FLAGS) -c -o "$@" "$<"
-	@echo 'Finished building: $<'
-	@echo ' '
+	@$(CC) $(ASM_FLAGS) -c -o "$@" "$<"
 
 $(TGT_DIR)/%.c.o: ./%.c makefile
-	@echo 'Building file: $<'
-	@echo 'Invoking: Cross ARM C Compiler'
+	@echo $<
 	@$(dir_guard)
-	$(CC) $(CC_FLAGS) -c -o "$@" "$<"
-	@echo 'Finished building: $<'
-	@echo ' '
+	@$(CC) $(CC_FLAGS) -c -o "$@" "$<"
 
-# All Target
-all: $(TGT_DIR)/$(TGT_NAME).elf
+all: $(TGT_DIR)/$(TGT_NAME).img
 
-# Tool invocations
 $(TGT_DIR)/$(TGT_NAME).elf: $(OBJS)
-	@echo 'Building target: $@'
-	@echo 'Invoking: Cross ARM C Linker'
-	$(CC) $(LD_FLAGS) -o "$(TGT_DIR)/$(TGT_NAME).elf" $(OBJS) $(LIBS)
-	@echo 'Finished building target: $@'
-	$(MAKE) --no-print-directory post-build
+	@echo $@
+	@$(CC) $(LD_FLAGS) -o "$(TGT_DIR)/$(TGT_NAME).elf" $(OBJS) $(LIBS)
 
-# Other Targets
 clean:
 	-@erase /S /Q "$(subst /,\,$(TGT_DIR))"\* >nul 2>&1
 
-post-build:
-	-@echo 'Generate boot-loadable binary image'
-	-elf2img.exe -i $(TGT_DIR)/$(TGT_NAME).elf -o $(TGT_DIR)/$(TGT_NAME).img -v
-	fc $(BLD_TYPE)\$(TGT_NAME).img $(TGT_DIR)\$(TGT_NAME).img
+$(TGT_DIR)/$(TGT_NAME).img: $(TGT_DIR)/$(TGT_NAME).elf
+	@echo 'Generate boot-loadable binary image'
+	@elf2img.exe -i "$<" -o "$@" -v
+#	fc $(BLD_TYPE)\$(TGT_NAME).img "$@"
 
-.PHONY: all clean
+deploy: $(TGT_DIR)/$(TGT_NAME).img
+	@echo deploying image to RAM
+	@"$(FX3_INSTALL_PATH)/util/cyfwprog/cyfwprog.exe" -fw "$<" -dest SYSTEM
+
+.PHONY: all clean deploy
