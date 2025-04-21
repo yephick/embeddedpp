@@ -1,5 +1,8 @@
 SHELL=C:\Windows\system32\cmd.exe
+ARMGCC_INSTALL_PATH:=$(VSAPPIDDIR)../../Linux/gcc_arm
+ARMGCC_VERSION:=9.3.1
 CC:="$(ARMGCC_INSTALL_PATH)/bin/arm-none-eabi-gcc"
+SDK:=../CY_SDK_1_3_5
 dir_guard = mkdir "$(subst /,\,$(@D))" >nul 2>&1 ||:
 
 BLD_TYPE?=Release
@@ -25,10 +28,10 @@ CMN_FLAGS:= -mcpu=arm926ej-s -marm -mthumb-interwork -fmessage-length=0 -fsigned
 ifneq (,$(filter $(BLD_TYPE),Debug ProfileDebug))
   CMN_FLAGS += -O0 -g3
 else
-  CMN_FLAGS += -O3 -g
+  CMN_FLAGS += -Os -g
 endif
 
-CMPL_FLAGS = $(CMN_FLAGS) -I"$(FX3_INSTALL_PATH)/fw_lib/1_3_5/inc" -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@"
+CMPL_FLAGS = $(CMN_FLAGS) -I"$(SDK)/inc" -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@"
 
 ASM_FLAGS = $(CMPL_FLAGS) -x assembler-with-cpp
 
@@ -38,16 +41,16 @@ ifneq (,$(filter $(BLD_TYPE),ProfileRelease ProfileDebug))
   CC_FLAGS += -DCYU3P_PROFILE_EN=1
 endif
 
-LD_FLAGS:= $(CMN_FLAGS) -T "$(FX3_INSTALL_PATH)/fw_build/fx3_fw/fx3.ld" -nostartfiles -Xlinker --gc-sections -L"$(ARMGCC_INSTALL_PATH)/lib/gcc/arm-none-eabi/$(ARMGCC_VERSION)" -L"$(ARMGCC_INSTALL_PATH)/arm-none-eabi/lib" -Wl,-Map,"$(TGT_DIR)/$(TGT_NAME).map" -Wl,-d  -Wl,--no-wchar-size-warning -Wl,--entry,CyU3PFirmwareEntry
+LD_FLAGS:= $(CMN_FLAGS) -T fx3.ld -nostartfiles -Xlinker --gc-sections -L"$(ARMGCC_INSTALL_PATH)/lib/gcc/arm-none-eabi/$(ARMGCC_VERSION)" -L"$(ARMGCC_INSTALL_PATH)/arm-none-eabi/lib" -Wl,-Map,"$(TGT_DIR)/$(TGT_NAME).map" -Wl,-d  -Wl,--no-wchar-size-warning -Wl,--entry,CyU3PFirmwareEntry
 
 ifeq ($(BLD_TYPE),ProfileRelease)
-  LD_FLAGS += -L"$(FX3_INSTALL_PATH)/fw_lib/1_3_5/fx3_profile_release"
+  LD_FLAGS += -L"$(SDK)/fx3_profile_release"
 else ifeq ($(BLD_TYPE),ProfileDebug)
-  LD_FLAGS += -L"$(FX3_INSTALL_PATH)/fw_lib/1_3_5/fx3_profile_debug"
+  LD_FLAGS += -L"$(SDK)/fx3_profile_debug"
 else ifeq ($(BLD_TYPE),Debug)
-  LD_FLAGS += -L"$(FX3_INSTALL_PATH)/fw_lib/1_3_5/fx3_debug"
+  LD_FLAGS += -L"$(SDK)/fx3_debug"
 else
-  LD_FLAGS += -L"$(FX3_INSTALL_PATH)/fw_lib/1_3_5/fx3_release"
+  LD_FLAGS += -L"$(SDK)/fx3_release"
 endif
 
 # Each subdirectory must supply rules for building sources it contributes
@@ -66,17 +69,18 @@ all: $(TGT_DIR)/$(TGT_NAME).img
 $(TGT_DIR)/$(TGT_NAME).elf: $(OBJS)
 	@echo $@
 	@$(CC) $(LD_FLAGS) -o "$(TGT_DIR)/$(TGT_NAME).elf" $(OBJS) $(LIBS)
+	@"$(ARMGCC_INSTALL_PATH)/bin/arm-none-eabi-size" --format=berkley "$@"
 
 clean:
 	-@erase /S /Q "$(subst /,\,$(TGT_DIR))"\* >nul 2>&1
 
 $(TGT_DIR)/$(TGT_NAME).img: $(TGT_DIR)/$(TGT_NAME).elf
 	@echo 'Generate boot-loadable binary image'
-	@elf2img.exe -i "$<" -o "$@" -v
+	@"$(SDK)/bin/elf2img.exe" -i "$<" -o "$@"
 #	fc $(BLD_TYPE)\$(TGT_NAME).img "$@"
 
 deploy: $(TGT_DIR)/$(TGT_NAME).img
 	@echo deploying image to RAM
-	@"$(FX3_INSTALL_PATH)/util/cyfwprog/cyfwprog.exe" -fw "$<" -dest SYSTEM
+	@"$(SDK)/bin/cyfwprog.exe" -fw "$<" -dest SYSTEM
 
 .PHONY: all clean deploy

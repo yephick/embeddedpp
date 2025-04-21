@@ -13,7 +13,7 @@
       "taskLabel": "deploy to RAM",
       "appliesTo": "/",
       "args": ["deploy"],
-      "command": "cs-make.exe",
+      "command": "../cs-make.exe",
       "inheritEnvironments": ["${cpp.activeConfiguration}"],
       "type": "launch"
     },
@@ -21,7 +21,7 @@
       "taskLabel": "build all",
       "appliesTo": "makefile",
       "args": ["all -j8"],
-      "command": "cs-make.exe",
+      "command": "../cs-make.exe",
       "inheritEnvironments": ["${cpp.activeConfiguration}"],
       "contextType": "build"
     },
@@ -29,7 +29,7 @@
       "taskLabel": "build all",
       "appliesTo": "/",
       "args": ["all -j8"],
-      "command": "cs-make.exe",
+      "command": "../cs-make.exe",
       "inheritEnvironments": ["${cpp.activeConfiguration}"],
       "contextType": "build"
     },
@@ -37,7 +37,7 @@
       "taskLabel": "clean all",
       "appliesTo": "/",
       "args": ["clean"],
-      "command": "cs-make.exe",
+      "command": "../cs-make.exe",
       "inheritEnvironments": ["${cpp.activeConfiguration}"],
       "contextType": "clean"
     },
@@ -45,7 +45,7 @@
       "taskLabel": "rebuild all",
       "appliesTo": "/",
       "args": ["clean all"],
-      "command": "cs-make.exe",
+      "command": "../cs-make.exe",
       "inheritEnvironments": ["${cpp.activeConfiguration}"],
       "contextType": "rebuild"
     },
@@ -53,7 +53,7 @@
       "taskLabel": "build C file",
       "appliesTo": "*.c",
       "args": ["build/${env.BLD_TYPE}/${relativeFile}.o"],
-      "command": "cs-make.exe",
+      "command": "../cs-make.exe",
       "inheritEnvironments": ["${cpp.activeConfiguration}"],
       "contextType": "build"
     },
@@ -61,7 +61,7 @@
       "taskLabel": "build ASM file",
       "appliesTo": "*.S",
       "args": ["build/${env.BLD_TYPE}/${relativeFile}.o"],
-      "command": "cs-make.exe",
+      "command": "../cs-make.exe",
       "inheritEnvironments": ["${cpp.activeConfiguration}"],
       "contextType": "build"
     }
