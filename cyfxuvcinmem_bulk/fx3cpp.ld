@@ -1,5 +1,5 @@
 /*
-   Cypress USB 3.0 Platform linker script file (fx3_512k.ld)
+   Cypress USB 3.0 Platform linker script file (fx3cpp.ld)
  
    Copyright Cypress Semiconductor Corporation, 2010-2023,
    All Rights Reserved
@@ -18,25 +18,28 @@
 */
 
 /*
-   This is the default GNU linker file for FX3 memory map, and is designed
-   for devices with 512 KB of System RAM, such as the CYUSB3014 and CYUSB3035
-   devices.
+   This is the GNU linker file used by FX3 applications using the C++ compiler.
+   The memory map used here is designed for devices with 512 KB of System RAM,
+   such as the CYUSB3014 and CYUSB3035 devices.
 
-   If an FX3 device with lesser RAM (CYUSB3011/CYUSB3012) is being used, the
-   fx3_256k.ld file should be used instead.
+   It is not advisable to use C++ based applications on FX3 devices with only
+   256 KB of RAM (CYUSB3011/CYUSB3012). This is because a typical C++ firmware
+   application will use up about 200 KB of the RAM, and not leave sufficient
+   space for data buffers.
 
    The full FX3/FX3S device has 16 KB of I-TCM memory which can be used for
    code (typically ISRs) and 512 KB of SYSTEM RAM which is shared between
    code, data and DMA buffers.
 
-   The default memory map used for FX3 applications is as follows:
+   The default memory map used for C++ based FX3 applications is as follows:
 
-   Descriptor area    Base: 0x40000000 Size: 12KB
-   Code area          Base: 0x40003000 Size: 180KB
-   Data area          Base: 0x40030000 Size: 32KB
-   Driver heap        Base: 0x40038000 Size: 32KB  (Update cyfxtx.c to change this.)
-   Buffer area        Base: 0x40040000 Size: 224KB (Update cyfxtx.c to change this.)
-   2-stage boot area  Base: 0x40078000 Size: 32KB  (Update cyfxtx.c to change this.)
+   Descriptor area              Base: 0x40000000 Size: 12KB
+   Code area                    Base: 0x40003000 Size: 256KB
+   Data area                    Base: 0x40043000 Size: 20KB
+   C++ Exception Handling       Base: 0x40048000 Size: 32KB
+   Runtime Compiler heap        Base: 0x40050000 Size: 32KB
+   Driver heap                  Base: 0x40058000 Size: 32KB  (Update cyfxtx.cpp when changing this)
+   Buffer area                  Base: 0x40060000 Size: 128KB (Update cyfxtx.cpp when changing this)
 
    Interrupt handlers are placed in I-TCM (16KB). The first 256 bytes of ITCM are
    reserved for Exception Vectors and will be loaded during firmware initialization.
@@ -58,9 +61,10 @@ ENTRY(CyU3PFirmwareEntry);
 
 MEMORY
 {
-	I-TCM	: ORIGIN = 0x200	LENGTH = 0x3E00
-	SYS_MEM	: ORIGIN = 0x40003000	LENGTH = 0x2D000
-	DATA	: ORIGIN = 0x40030000	LENGTH = 0x8000
+	I-TCM		: ORIGIN = 0x200	LENGTH = 0x3E00
+	SYS_MEM	        : ORIGIN = 0x40003000	LENGTH = 0x40000
+	DATA		: ORIGIN = 0x40043000	LENGTH = 0x5000
+	ARM		: ORIGIN = 0x40048000	LENGTH = 0x8000
 }
 
 SECTIONS
@@ -76,12 +80,12 @@ SECTIONS
 
 	.text :
 	{
-		*(.text*)
+		*(.text)
 		*(.rodata*)
 		*(.constdata)
 		*(.emb_text)
 		*(CYU3P_EXCEPTION_VECTORS);
-		_etext = .;
+		 _etext = .;
 		. = ALIGN(4);
 	} > SYS_MEM
 
@@ -98,7 +102,7 @@ SECTIONS
 	{
 		_bss_start = .;
 		*(.bss*)
-		. = ALIGN(4);
+                . = ALIGN(4);
 	} >DATA 
 	_bss_end = . ;
 
@@ -106,5 +110,32 @@ SECTIONS
 		*(.ARM.exidx*);
 		*(.ARM.extab*);
 	}
-}
+	/*
+	.ARM.extab   : 
+        { 
+            *(.ARM.extab* .gnu.linkonce.armextab.*) 
+            . = ALIGN(4);
+        } > ARM
 
+        __exidx_start = .;
+        PROVIDE(__exidx_start = __exidx_start);
+	.ARM.exidx   : 
+        { 
+            *(.ARM.exidx* .gnu.linkonce.armexidx.*) 
+            . = ALIGN(4);
+        } >ARM
+        __exidx_end = .;
+
+        PROVIDE(__exidx_end = __exidx_end);
+		*/
+        
+        . = ALIGN(4);
+        __heap_start = 0x40050000;
+        PROVIDE(__heap_start = __heap_start);
+        
+        . = ALIGN(4);
+        __heap_end = 0x40058000;
+        PROVIDE(__heap_end = __heap_end);
+	
+	PROVIDE(__heap_size = __heap_end - __heap_start);
+}

@@ -58,6 +58,14 @@
       "contextType": "build"
     },
     {
+      "taskLabel": "build C++ file",
+      "appliesTo": "*.cpp",
+      "args": ["build/${env.BLD_TYPE}/${relativeFile}.o"],
+      "command": "../cs-make.exe",
+      "inheritEnvironments": ["${cpp.activeConfiguration}"],
+      "contextType": "build"
+    },
+    {
       "taskLabel": "build ASM file",
       "appliesTo": "*.S",
       "args": ["build/${env.BLD_TYPE}/${relativeFile}.o"],

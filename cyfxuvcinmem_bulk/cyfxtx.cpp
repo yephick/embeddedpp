@@ -1,5 +1,5 @@
 /*
- ## Cypress FX3 Firmware Source File (cyfxtx.c)
+ ## Cypress FX3 Firmware Source File (cyfxtx.cpp)
  ## ===========================
  ##
  ##  Copyright Cypress Semiconductor Corporation, 2010-2023,
@@ -20,7 +20,7 @@
  ## ===========================
 */
 
-/* File: cyfxtx.c
+/* File: cyfxtx.cpp
  *
  * This file provides the application specific exception handlers and memory allocation routines.
  * A sample implementation is provided with the FX3 SDK and can be updated where required by the
@@ -45,52 +45,24 @@
 #undef CYFXTX_ERRORDETECTION
 #endif
 
+/*
+   The C++ version of the RTOS port is not available for the CYUSB3011/CYUSB3012
+   devices that have only 256 KB of System RAM.
+ */
 #ifdef CYMEM_256K
-
-/*
-   A reduced memory map is used with the CYUSB3011/CYUSB3012 devices:
-
-   Descriptor area    Base: 0x40000000 Size: 12  KB
-   Code area          Base: 0x40003000 Size: 128 KB
-   Data area          Base: 0x40023000 Size: 24  KB
-   Driver heap        Base: 0x40029000 Size: 28  KB
-   Buffer area        Base: 0x40030000 Size: 32  KB
-   2-stage boot area  Base: 0x40038000 Size: 32  KB
-
-   Note: The 2-stage boot area is optional (only required if the application makes use of a persistent
-   in-memory boot-loader). If this is not being used, the 32 KB reserved for this segment can be merged
-   into the buffer area by changing CY_U3P_SYS_MEM_TOP to 0x40040000.
- */
-
-/*
-   The following definitions specify the start address and length of the Driver heap
-   area which is used by the application code as well as the drivers to allocate thread
-   stacks and other internal data structures.
- */
-#define CY_U3P_MEM_HEAP_BASE         (0x40029000)
-#define CY_U3P_MEM_HEAP_SIZE         (0x7000)
-
-/*
-   The last 32 KB of RAM is reserved for 2-stage boot operation. This value can be
-   changed to 0x40040000 if 2-stage boot is not used by the application.
- */
-#define CY_U3P_SYS_MEM_TOP           (0x40038000)
-
-#else /* 512 KB RAM is available. */
+#error "Devices with 256 KB of RAM not supported by the cyfxtx.cpp file."
+#endif
 
 /*
    The default application memory map for FX3 firmware is as follows:
 
-   Descriptor area    Base: 0x40000000 Size: 12  KB
-   Code area          Base: 0x40003000 Size: 180 KB
-   Data area          Base: 0x40030000 Size: 32  KB
-   Driver heap        Base: 0x40038000 Size: 32  KB
-   Buffer area        Base: 0x40040000 Size: 224 KB
-   2-stage boot area  Base: 0x40078000 Size: 32  KB
-
-   Note: The 2-stage boot area is optional (only required if the application makes use of a persistent
-   in-memory boot-loader). If this is not being used, the 32 KB reserved for this segment can be merged
-   into the buffer area by changing CY_U3P_SYS_MEM_TOP to 0x40080000.
+   Descriptor area          Base: 0x40000000 Size: 12  KB
+   Code area                Base: 0x40003000 Size: 256 KB
+   Data area                Base: 0x40043000 Size: 20  KB
+   C++ Exception Handlers   Base: 0x40048000 Size: 32  KB
+   Runtime compiler heap    Base: 0x40050000 Size: 32  KB
+   Driver heap              Base: 0x40058000 Size: 32  KB
+   Buffer area              Base: 0x40060000 Size: 128 KB
  */
 
 /*
@@ -98,16 +70,11 @@
    area which is used by the application code as well as the drivers to allocate thread
    stacks and other internal data structures.
  */
-#define CY_U3P_MEM_HEAP_BASE         (0x40038000)
+#define CY_U3P_MEM_HEAP_BASE         (0x40058000)
 #define CY_U3P_MEM_HEAP_SIZE         (0x8000)
 
-/*
-   The last 32 KB of RAM is reserved for 2-stage boot operation. This value can be
-   changed to 0x40080000 if 2-stage boot is not used by the application.
- */
-#define CY_U3P_SYS_MEM_TOP           (0x40078000)
-
-#endif
+/* Limit for the buffer heap area is the top of the SYSMEM RAM area. */
+#define CY_U3P_SYS_MEM_TOP           (0x40080000)
 
 /*
    The buffer heap is used to obtain data buffers for DMA transfers in or out of
