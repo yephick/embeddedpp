@@ -1,9 +1,10 @@
 SHELL=C:\Windows\system32\cmd.exe
 ARMGCC_INSTALL_PATH:=$(VSAPPIDDIR)../../Linux/gcc_arm
 ARMGCC_VERSION:=9.3.1
-CC:="$(ARMGCC_INSTALL_PATH)/bin/arm-none-eabi-gcc"
-CXX:="$(ARMGCC_INSTALL_PATH)/bin/arm-none-eabi-g++"
-LD:="$(ARMGCC_INSTALL_PATH)/bin/arm-none-eabi-g++"
+CLANG_ROOT ?= $(VSAPPIDDIR)../../VC/Tools/Llvm
+CC:="$(CLANG_ROOT)/bin/clang"
+CXX:="$(CLANG_ROOT)/bin/clang++"
+LD:="$(CLANG_ROOT)/bin/clang++"
 SDK:=../CY_SDK_1_3_5
 dir_guard = mkdir "$(subst /,\,$(@D))" >nul 2>&1 ||:
 
@@ -23,9 +24,9 @@ ifneq ($(strip $(DEPS)),)
 endif
 endif
 
-LIBS := -lcyu3lpp -lcyfxapi -lcyu3threadx
+LIBS := -lcyu3lpp -lcyfxapi -lcyu3threadx -lc -lgcc
 
-CMN_FLAGS:= -mcpu=arm926ej-s -marm -mthumb-interwork -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -Wall
+CMN_FLAGS:= -target arm-none-eabi -mcpu=arm926ej-s -marm -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -Wall
 
 ifneq (,$(filter $(BLD_TYPE),Debug ProfileDebug))
   CMN_FLAGS += -O0 -g3
@@ -34,17 +35,17 @@ else
 endif
 
 ifneq (,$(filter $(BLD_TYPE),ProfileRelease ProfileDebug))
-  CMPL_FLAGS += -DCYU3P_PROFILE_EN=1
+  CMN_FLAGS += -DCYU3P_PROFILE_EN=1
 endif
 
-CMPL_FLAGS = $(CMN_FLAGS) -D__CYU3P_TX__=1 -I"$(SDK)/inc" -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@"
+CMPL_FLAGS = $(CMN_FLAGS) --sysroot="$(ARMGCC_INSTALL_PATH)/arm-none-eabi/" -fshort-enums -D__CYU3P_TX__=1 -I"$(SDK)/inc" -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@"
 
-ASM_FLAGS = $(CMPL_FLAGS) -x assembler-with-cpp
+ASM_FLAGS = $(CMPL_FLAGS) -x assembler-with-cpp -DINTER=TRUE
 
 CC_FLAGS = $(CMPL_FLAGS) -std=gnu11
-CXX_FLAGS = $(CMPL_FLAGS) -std=gnu++11 -fno-exceptions -fno-rtti -fabi-version=0
+CXX_FLAGS = $(CMPL_FLAGS) -std=gnu++11 -fno-exceptions -fno-rtti -nostdlib
 
-LD_FLAGS:= $(CXX_FLAGS) -T fx3cpp.ld -nostartfiles -Xlinker --gc-sections -L"$(ARMGCC_INSTALL_PATH)/lib/gcc/arm-none-eabi/$(ARMGCC_VERSION)" -L"$(ARMGCC_INSTALL_PATH)/arm-none-eabi/lib" -Wl,-Map,"$(TGT_DIR)/$(TGT_NAME).map" -Wl,-d  -Wl,--no-wchar-size-warning -Wl,--entry,CyU3PFirmwareEntry
+LD_FLAGS:= $(CXX_FLAGS) -T fx3cpp.ld -Xlinker --gc-sections -L"$(ARMGCC_INSTALL_PATH)/lib/gcc/arm-none-eabi/$(ARMGCC_VERSION)" -L"$(ARMGCC_INSTALL_PATH)/arm-none-eabi/lib" -Wl,-Map,"$(TGT_DIR)/$(TGT_NAME).map" -Wl,-d -Wl,--entry,CyU3PFirmwareEntry
 
 ifeq ($(BLD_TYPE),ProfileRelease)
   LD_FLAGS += -L"$(SDK)/fx3_profile_release"
