@@ -45,7 +45,7 @@ __user_initial_stackheap:
 # The tool chain is not expected to place the stack.
 # No heap is expected to be used by USB 3.0 platform drivers.
 # Place them as required by the user code
-#if INTER == TRUE
+#if INTER == 1
     bx      lr                 
 #else
     mov     pc, lr             

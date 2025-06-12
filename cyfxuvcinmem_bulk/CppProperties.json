@@ -1,66 +1,80 @@
 {
+  "environments": [
+    {
+      "CY_SDK_ROOT": "${workspaceRoot}/../CY_SDK_1_3_5",
+      "ARMGCC_VERSION": "9.3.1",
+      "ARMGCC_INSTALL_PATH": "${env.VSAPPIDDIR}../../Linux/gcc_arm",
+      "INC_GNU_C": "${env.ARMGCC_INSTALL_PATH}/arm-none-eabi/include",
+      "INC_GNU_CPP": "${env.INC_GNU_C}/c++/${env.ARMGCC_VERSION}",
+      "INC_GCC_LIB": "${env.ARMGCC_INSTALL_PATH}/lib/gcc/arm-none-eabi/${env.ARMGCC_VERSION}",
+      "CLANG_ROOT": "${env.VSAPPIDDIR}../../VC/Tools/Llvm",
+      "CXX": "${env.CLANG_ROOT}/bin/clang++"
+    }
+  ],
   "configurations": [
     {
       "name": "IoT-ProfileRelease",
-        "includePath": [
-            "${env.FX3_INSTALL_PATH}/fw_lib/1_3_5/inc",
-            "${env.ARMGCC_INSTALL_PATH}/arm-none-eabi/include",
-            "${env.ARMGCC_INSTALL_PATH}/lib/gcc/arm-none-eabi/${env.ARMGCC_VERSION}/include",
-            "${env.ARMGCC_INSTALL_PATH}/lib/gcc/arm-none-eabi/${env.ARMGCC_VERSION}/include-fixed",
-            "${workspaceRoot}\\**"
-        ],
-      "defines": [
-        "__CYU3P_TX__=1",
-        "CYU3P_PROFILE_EN=1"
+      "compilerPath": "${env.CXX}",
+      "compilerSwitches": "-std=c++20",
+      "includePath": [
+        "${env.CY_SDK_ROOT}/inc",
+        "${env.INC_GNU_C}",
+        "${env.INC_GNU_CPP}",
+        "${env.INC_GNU_CPP}/arm-none-eabi",
+        "${env.INC_GCC_LIB}/include",
+        "${env.INC_GCC_LIB}/include-fixed"
       ],
-      "environments": [{"BLD_TYPE":  "ProfileRelease"}],
-      "intelliSenseMode": "linux-gcc-x64"
+      "defines": [ "__CYU3P_TX__=1", "CYU3P_PROFILE_EN=1" ],
+      "environments": [ { "BLD_TYPE": "ProfileRelease" } ],
+      "intelliSenseMode": "linux-gcc-arm"
     },
     {
       "name": "IoT-ProfileDebug",
-        "includePath": [
-            "${env.FX3_INSTALL_PATH}/fw_lib/1_3_5/inc",
-            "${env.ARMGCC_INSTALL_PATH}/arm-none-eabi/include",
-            "${env.ARMGCC_INSTALL_PATH}/lib/gcc/arm-none-eabi/${env.ARMGCC_VERSION}/include",
-            "${env.ARMGCC_INSTALL_PATH}/lib/gcc/arm-none-eabi/${env.ARMGCC_VERSION}/include-fixed",
-            "${workspaceRoot}\\**"
-        ],
-      "defines": [
-        "__CYU3P_TX__=1",
-        "CYU3P_PROFILE_EN=1"
+      "compilerPath": "${env.CXX}",
+      "compilerSwitches": "-std=c++20",
+      "includePath": [
+        "${env.CY_SDK_ROOT}/inc",
+        "${env.INC_GNU_C}",
+        "${env.INC_GNU_CPP}",
+        "${env.INC_GNU_CPP}/arm-none-eabi",
+        "${env.INC_GCC_LIB}/include",
+        "${env.INC_GCC_LIB}/include-fixed"
       ],
-      "environments": [{"BLD_TYPE":  "ProfileDebug"}],
-      "intelliSenseMode": "linux-gcc-x64"
+      "defines": [ "__CYU3P_TX__=1", "CYU3P_PROFILE_EN=1" ],
+      "environments": [ { "BLD_TYPE": "ProfileDebug" } ],
+      "intelliSenseMode": "linux-gcc-arm"
     },
     {
       "name": "IoT-Release",
-        "includePath": [
-            "${env.FX3_INSTALL_PATH}/fw_lib/1_3_5/inc",
-            "${env.ARMGCC_INSTALL_PATH}/arm-none-eabi/include",
-            "${env.ARMGCC_INSTALL_PATH}/lib/gcc/arm-none-eabi/${env.ARMGCC_VERSION}/include",
-            "${env.ARMGCC_INSTALL_PATH}/lib/gcc/arm-none-eabi/${env.ARMGCC_VERSION}/include-fixed",
-            "${workspaceRoot}\\**"
-        ],
-      "defines": [
-        "__CYU3P_TX__=1"
+      "compilerPath": "${env.CXX}",
+      "compilerSwitches": "-std=c++20",
+      "includePath": [
+        "${env.CY_SDK_ROOT}/inc",
+        "${env.INC_GNU_C}",
+        "${env.INC_GNU_CPP}",
+        "${env.INC_GNU_CPP}/arm-none-eabi",
+        "${env.INC_GCC_LIB}/include",
+        "${env.INC_GCC_LIB}/include-fixed"
       ],
-      "environments": [{"BLD_TYPE":  "Release"}],
-      "intelliSenseMode": "linux-gcc-x64"
+      "defines": [ "__CYU3P_TX__=1" ],
+      "environments": [ { "BLD_TYPE": "Release" } ],
+      "intelliSenseMode": "linux-gcc-arm"
     },
     {
       "name": "IoT-Debug",
-        "includePath": [
-            "${env.FX3_INSTALL_PATH}/fw_lib/1_3_5/inc",
-            "${env.ARMGCC_INSTALL_PATH}/arm-none-eabi/include",
-            "${env.ARMGCC_INSTALL_PATH}/lib/gcc/arm-none-eabi/${env.ARMGCC_VERSION}/include",
-            "${env.ARMGCC_INSTALL_PATH}/lib/gcc/arm-none-eabi/${env.ARMGCC_VERSION}/include-fixed",
-            "${workspaceRoot}\\**"
-        ],
-      "defines": [
-        "__CYU3P_TX__=1"
+      "compilerPath": "${env.CXX}",
+      "compilerSwitches": "-std=c++20",
+      "includePath": [
+        "${env.CY_SDK_ROOT}/inc",
+        "${env.INC_GNU_C}",
+        "${env.INC_GNU_CPP}",
+        "${env.INC_GNU_CPP}/arm-none-eabi",
+        "${env.INC_GCC_LIB}/include",
+        "${env.INC_GCC_LIB}/include-fixed"
       ],
-      "environments": [{"BLD_TYPE":  "Debug"}],
-      "intelliSenseMode": "linux-gcc-x64"
+      "defines": [ "__CYU3P_TX__=1" ],
+      "environments": [ { "BLD_TYPE": "Debug" } ],
+      "intelliSenseMode": "linux-gcc-arm"
     }
   ]
 }
