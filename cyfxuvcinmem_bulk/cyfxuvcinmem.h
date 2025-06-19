@@ -26,63 +26,65 @@
 #include <cyu3externcstart.h>
 #include <cyu3types.h>
 #include <cyu3usbconst.h>
+#include <cyu3dma.h>
 
 /* This header file comprises of the UVC application constants and
  * the video frame configurations */
 
-#define UVC_APP_THREAD_STACK           (0x1000)        /* Thread stack size */
-#define UVC_APP_THREAD_PRIORITY        (8)             /* Thread priority */
+// Thread stack size and priority
+constexpr uint32_t UVC_APP_THREAD_STACK = 0x1000;
+constexpr uint32_t UVC_APP_THREAD_PRIORITY = 8;
 
-/* Endpoint definition for UVC application */
-#define CY_FX_EP_BULK_VIDEO            (0x81)          /* EP 1 IN configured as Bulk EP */
-#define CY_FX_EP_VIDEO_CONS_SOCKET     (CY_U3P_UIB_SOCKET_CONS_1) /* Consumer socket 1 */
-#define CY_FX_EP_CONTROL_STATUS        (0x82)          /* EP 2 IN */
+// Endpoint definition for UVC application
+constexpr uint8_t CY_FX_EP_BULK_VIDEO = 0x81; // EP 1 IN configured as Bulk EP
+constexpr auto CY_FX_EP_VIDEO_CONS_SOCKET = CY_U3P_UIB_SOCKET_CONS_1; // Consumer socket 1
+constexpr uint8_t CY_FX_EP_CONTROL_STATUS = 0x82; // EP 2 IN
 
-/* UVC descriptor types */
-#define CY_FX_INTF_ASSN_DSCR_TYPE      (11)            /* Interface association descriptor type. */
+// UVC descriptor types
+constexpr uint8_t CY_FX_INTF_ASSN_DSCR_TYPE = 11; // Interface association descriptor type
 
-/* UVC video streaming endpoint packet Size */
-#define CY_FX_EP_BULK_VIDEO_PKT_SIZE   (0x400)
+// UVC video streaming endpoint packet Size
+constexpr uint16_t CY_FX_EP_BULK_VIDEO_PKT_SIZE = 0x400;
 
-/* UVC video streaming endpoint packet Count */
-#define CY_FX_EP_BULK_VIDEO_PKTS_COUNT (0x01)
+// UVC video streaming endpoint packet Count
+constexpr uint8_t CY_FX_EP_BULK_VIDEO_PKTS_COUNT = 0x01;
 
-#define CY_FX_UVC_MAX_VID_FRAMES       (2)              /* Maximum number of video frames (4) */
+constexpr uint8_t CY_FX_UVC_MAX_VID_FRAMES = 2; // Maximum number of video frames (4)
 
-#define CY_FX_BULK_BURST               (8)              /* Burst size for SS operation only. */
+constexpr uint8_t CY_FX_BULK_BURST = 8; // Burst size for SS operation only.
 
-/* UVC Buffer size */
-#define CY_FX_UVC_STREAM_BUF_SIZE      (4096)
+// UVC Buffer size
+constexpr uint32_t CY_FX_UVC_STREAM_BUF_SIZE = 4096;
 
-/* UVC Buffer count */
-#define CY_FX_UVC_STREAM_BUF_COUNT     (10)
+// UVC Buffer count
+constexpr uint8_t CY_FX_UVC_STREAM_BUF_COUNT = 10;
 
-#define CY_FX_UVC_MAX_HEADER           (12)         /* Maximum number of header bytes in UVC */
-#define CY_FX_UVC_HEADER_DEFAULT_BFH   (0x8C)       /* Default BFH(Bit Field Header) for the UVC Header */
+constexpr uint8_t CY_FX_UVC_MAX_HEADER = 12; // Maximum number of header bytes in UVC
+constexpr uint8_t CY_FX_UVC_HEADER_DEFAULT_BFH = 0x8C; // Default BFH(Bit Field Header) for the UVC Header
 
-#define CY_FX_UVC_MAX_PROBE_SETTING    (34)         /* Maximum number of bytes in Probe Control */
-#define CY_FX_UVC_MAX_PROBE_SETTING_ALIGNED    (64) /* Maximum number of bytes in Probe Control aligned to 32 byte */
+constexpr uint8_t CY_FX_UVC_MAX_PROBE_SETTING = 34; // Maximum number of bytes in Probe Control
+constexpr uint8_t CY_FX_UVC_MAX_PROBE_SETTING_ALIGNED = 64; // Maximum number of bytes in Probe Control aligned to 32 byte
 
-#define CY_FX_UVC_HEADER_FRAME          (0)                     /* Normal frame indication */
-#define CY_FX_UVC_HEADER_EOF            (uint8_t)(1 << 1)       /* End of frame indication */
-#define CY_FX_UVC_HEADER_FRAME_ID       (uint8_t)(1 << 0)       /* Frame ID toggle bit */
+constexpr uint8_t CY_FX_UVC_HEADER_FRAME = 0; // Normal frame indication
+constexpr uint8_t CY_FX_UVC_HEADER_EOF = 1 << 1; // End of frame indication
+constexpr uint8_t CY_FX_UVC_HEADER_FRAME_ID = 1 << 0; // Frame ID toggle bit
 
-#define CY_FX_UVC_INTERFACE_VC          (0)                     /* Video Control interface id. */
-#define CY_FX_UVC_INTERFACE_VS          (1)                     /* Video Streaming interface id. */
+constexpr uint8_t CY_FX_UVC_INTERFACE_VC = 0; // Video Control interface id.
+constexpr uint8_t CY_FX_UVC_INTERFACE_VS = 1; // Video Streaming interface id.
 
-#define CY_FX_USB_UVC_SET_REQ_TYPE      (uint8_t)(0x21)         /* UVC interface SET request type */
-#define CY_FX_USB_UVC_GET_REQ_TYPE      (uint8_t)(0xA1)         /* UVC Interface GET request type */
-#define CY_FX_USB_UVC_GET_CUR_REQ       (uint8_t)(0x81)         /* UVC GET_CUR request */
-#define CY_FX_USB_UVC_SET_CUR_REQ       (uint8_t)(0x01)         /* UVC SET_CUR request */
-#define CY_FX_USB_UVC_GET_DEF_REQ       (uint8_t)(0x87)         /* UVC GET_DEF request */
-#define CY_FX_USB_UVC_GET_MIN_REQ       (uint8_t)(0x82)         /* UVC GET_MIN request */
-#define CY_FX_USB_UVC_GET_MAX_REQ       (uint8_t)(0x83)         /* UVC GET_MAX request */
+constexpr uint8_t CY_FX_USB_UVC_SET_REQ_TYPE = 0x21; // UVC interface SET request type
+constexpr uint8_t CY_FX_USB_UVC_GET_REQ_TYPE = 0xA1; // UVC Interface GET request type
+constexpr uint8_t CY_FX_USB_UVC_GET_CUR_REQ = 0x81; // UVC GET_CUR request
+constexpr uint8_t CY_FX_USB_UVC_SET_CUR_REQ = 0x01; // UVC SET_CUR request
+constexpr uint8_t CY_FX_USB_UVC_GET_DEF_REQ = 0x87; // UVC GET_DEF request
+constexpr uint8_t CY_FX_USB_UVC_GET_MIN_REQ = 0x82; // UVC GET_MIN request
+constexpr uint8_t CY_FX_USB_UVC_GET_MAX_REQ = 0x83; // UVC GET_MAX request
 
-#define CY_FX_USB_UVC_VS_PROBE_CONTROL  (0x0100)                /* Control selector for VS_PROBE_CONTROL. */
-#define CY_FX_USB_UVC_VS_COMMIT_CONTROL (0x0200)                /* Control selector for VS_COMMIT_CONTROL. */
+constexpr uint16_t CY_FX_USB_UVC_VS_PROBE_CONTROL = 0x0100; // Control selector for VS_PROBE_CONTROL.
+constexpr uint16_t CY_FX_USB_UVC_VS_COMMIT_CONTROL = 0x0200; // Control selector for VS_COMMIT_CONTROL.
 
-#define CY_FX_USB_UVC_VC_RQT_ERROR_CODE_CONTROL (0x0200)
-#define CY_FX_USB_UVC_RQT_STAT_INVALID_CTRL     (0x06)
+constexpr uint16_t CY_FX_USB_UVC_VC_RQT_ERROR_CODE_CONTROL = 0x0200;
+constexpr uint8_t CY_FX_USB_UVC_RQT_STAT_INVALID_CTRL = 0x06;
 
 /* Extern definitions of the USB Enumeration constant arrays used for the Application */
 extern const uint8_t CyFxUSB20DeviceDscr[];

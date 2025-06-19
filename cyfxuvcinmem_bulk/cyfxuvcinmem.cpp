@@ -58,11 +58,26 @@
 #include "cyu3uart.h"
 #include "cyu3utils.h"
 
-/* Setup data field : Request */
-#define CY_U3P_USB_REQUEST_MASK                       (0x0000FF00)
-#define CY_U3P_USB_REQUEST_POS                        (8)
-
 CyU3PThread uvcAppThread;           /* Thread structure */
+
+/* Callback to handle the USB Setup Requests and UVC Class events */
+union UsbSetup
+{
+    struct
+    {
+        uint8_t bmRequestType; // Request type
+        uint8_t bRequest;      // Request
+        uint16_t wValue;       // Value
+        uint16_t wIndex;       // Index
+        uint16_t wLength;      // Length
+    } fields;
+    struct
+    {
+        uint32_t setupdat0;
+        uint32_t setupdat1;
+    } raw;
+    uint32_t words[2];
+};
 
 /* UVC Header */
 uint8_t glUVCHeader[CY_FX_UVC_MAX_HEADER] =
@@ -83,7 +98,7 @@ static volatile CyBool_t glIsDevConfigured = CyFalse;   /* Whether SET_CONFIG is
 /* Application error handler */
 void
 CyFxAppErrorHandler (
-        CyU3PReturnStatus_t apiRetStatus    /* API return status */
+        CyU3PReturnStatus_t /*apiRetStatus*/    /* API return status */
         )
 {
     /* Application failed with the error code apiRetStatus */
@@ -143,6 +158,30 @@ CyFxUVCApplnDebugInit (void)
     }
 
     CyU3PDebugPrint(1, "Hello, world!\r\n");
+}
+
+/* Helper function to set USB descriptors and handle errors */
+static void CyFxUVCSetUsbDescOrFail(CyU3PUSBSetDescType_t descType, uint8_t index, const uint8_t* desc)
+{
+    CyU3PReturnStatus_t apiRetStatus = CyU3PUsbSetDesc(descType, index, const_cast<uint8_t*>(desc));
+    if (apiRetStatus != CY_U3P_SUCCESS)
+    {
+        CyU3PDebugPrint(4, "USB set descriptor failed, Type = %d, Index = %d, Error code = %d\n", descType, index, apiRetStatus);
+        CyFxAppErrorHandler(apiRetStatus);
+    }
+}
+
+/* Add this function near the top of the file, after includes. */
+static void logUsbSetup(const UsbSetup& usbRqt)
+{
+    /* Print each field in the setup packet for debugging */
+    CyU3PDebugPrint(4,
+        "SETUP: bmRequestType=%d bRequest=%d wValue=%d wIndex=%d wLength=%d\r\n",
+        usbRqt.fields.bmRequestType,
+        usbRqt.fields.bRequest,
+        usbRqt.fields.wValue,
+        usbRqt.fields.wIndex,
+        usbRqt.fields.wLength);
 }
 
 /* This function starts the video streaming application. It is called
@@ -268,130 +307,137 @@ CyFxUVCApplnUSBEventCB (
     }
 }
 
-/* Callback to handle the USB Setup Requests and UVC Class events */
-static CyBool_t
-CyFxUVCApplnUSBSetupCB (
-        uint32_t setupdat0, /* SETUP Data 0 */
-        uint32_t setupdat1  /* SETUP Data 1 */
-    )
+// Helper for standard requests
+static CyBool_t CyFxUVCHandleStandardRequest(const UsbSetup& usbRqt)
 {
-    uint16_t readCount = 0;
-    uint8_t  bRequest, bReqType;
-    uint8_t  bType, bTarget, temp;
-    uint16_t wValue, wIndex;
     CyBool_t isHandled = CyFalse;
-    CyU3PReturnStatus_t status = CY_U3P_SUCCESS;
+    uint8_t bTarget = (usbRqt.fields.bmRequestType & CY_U3P_USB_TARGET_MASK);
+    uint8_t bRequest = usbRqt.fields.bRequest;
+    uint16_t wValue = usbRqt.fields.wValue;
 
-    /* Fast enumeration is used. Only requests addressed to the interface, class,
-     * vendor and unknown control requests are received by this function. */
-
-    /* Decode the fields from the setup request. */
-    bReqType = (setupdat0 & CY_U3P_USB_REQUEST_TYPE_MASK);
-    bType    = (bReqType & CY_U3P_USB_TYPE_MASK);
-    bTarget  = (bReqType & CY_U3P_USB_TARGET_MASK);
-    bRequest = ((setupdat0 & CY_U3P_USB_REQUEST_MASK) >> CY_U3P_USB_REQUEST_POS);
-    wValue   = ((setupdat0 & CY_U3P_USB_VALUE_MASK)   >> CY_U3P_USB_VALUE_POS);
-    wIndex   = ((setupdat1 & CY_U3P_USB_INDEX_MASK)   >> CY_U3P_USB_INDEX_POS);
-
-    if (bType == CY_U3P_USB_STANDARD_RQT)
+    if ((bTarget == CY_U3P_USB_TARGET_INTF) &&
+        ((bRequest == CY_U3P_USB_SC_SET_FEATURE) || (bRequest == CY_U3P_USB_SC_CLEAR_FEATURE)) &&
+        (wValue == 0))
     {
-        /* Handle SET_FEATURE(FUNCTION_SUSPEND) and CLEAR_FEATURE(FUNCTION_SUSPEND)
-         * requests here. It should be allowed to pass if the device is in configured
-         * state and failed otherwise. */
-        if ((bTarget == CY_U3P_USB_TARGET_INTF) && ((bRequest == CY_U3P_USB_SC_SET_FEATURE)
-                    || (bRequest == CY_U3P_USB_SC_CLEAR_FEATURE)) && (wValue == 0))
-        {
-            if (glIsDevConfigured)
-                CyU3PUsbAckSetup ();
-            else
-                CyU3PUsbStall (0, CyTrue, CyFalse);
+        if (glIsDevConfigured)
+            CyU3PUsbAckSetup();
+        else
+            CyU3PUsbStall(0, CyTrue, CyFalse);
 
-            isHandled = CyTrue;
-        }
+        isHandled = CyTrue;
     }
+    return isHandled;
+}
 
-    /* Check for UVC Class Requests */
-    if (bType == CY_U3P_USB_CLASS_RQT)
+// Helper for Video Control interface requests
+static CyBool_t CyFxUVCHandleVCRequest(const UsbSetup& usbRqt)
+{
+    CyBool_t isHandled = CyFalse;
+    uint16_t wIndex = usbRqt.fields.wIndex;
+    uint16_t wValue = usbRqt.fields.wValue;
+    //uint8_t bRequest = usbRqt.fields.bRequest;
+    uint8_t temp;
+
+    if ((CY_U3P_GET_LSB(wIndex) == CY_FX_UVC_INTERFACE_VC) &&
+        (CY_U3P_GET_MSB(wIndex) == 0x00) &&
+        (wValue == CY_FX_USB_UVC_VC_RQT_ERROR_CODE_CONTROL))
     {
-        CyU3PDebugPrint (4, "UVC RQT: %x %x %x %x %x\r\n", bTarget, bRequest, CY_U3P_GET_MSB(wIndex),
-                CY_U3P_GET_LSB(wIndex), wValue);
+        temp = CY_FX_USB_UVC_RQT_STAT_INVALID_CTRL;
+        isHandled = CyTrue;
+        CyU3PUsbSendEP0Data(0x01, &temp);
+    }
+    return isHandled;
+}
 
-        /* Handle requests addressed to the Video Control interface. */
-        if ((bTarget == CY_U3P_USB_TARGET_INTF) && (CY_U3P_GET_LSB (wIndex) == CY_FX_UVC_INTERFACE_VC))
-        {
-            /* Respond to VC_REQUEST_ERROR_CODE_CONTROL and stall every other request as this example does not support
-               any of the Video Control features */
-            if ((CY_U3P_GET_MSB(wIndex) == 0x00) && (wValue == CY_FX_USB_UVC_VC_RQT_ERROR_CODE_CONTROL))
+// Helper for Video Streaming interface requests
+static CyBool_t CyFxUVCHandleVSRequest(const UsbSetup& usbRqt)
+{
+    CyBool_t isHandled = CyFalse;
+    uint16_t wIndex = usbRqt.fields.wIndex;
+    uint16_t wValue = usbRqt.fields.wValue;
+    uint8_t bRequest = usbRqt.fields.bRequest;
+    CyU3PReturnStatus_t status;
+    uint16_t readCount = 0;
+
+    if (CY_U3P_GET_LSB(wIndex) != CY_FX_UVC_INTERFACE_VS)
+        return CyFalse;
+
+    isHandled = CyTrue;
+    switch (wValue)
+    {
+        case CY_FX_USB_UVC_VS_PROBE_CONTROL:
+        case CY_FX_USB_UVC_VS_COMMIT_CONTROL:
+            switch (bRequest)
             {
-                temp      = CY_FX_USB_UVC_RQT_STAT_INVALID_CTRL;
-                isHandled = CyTrue;
-                CyU3PUsbSendEP0Data (0x01, &temp);
-            }
-        }
+                case CY_FX_USB_UVC_GET_CUR_REQ:
+                case CY_FX_USB_UVC_GET_DEF_REQ:
+                case CY_FX_USB_UVC_GET_MIN_REQ:
+                case CY_FX_USB_UVC_GET_MAX_REQ:
+                    status = CyU3PUsbSendEP0Data(CY_FX_UVC_MAX_PROBE_SETTING, (uint8_t *)glProbeCtrl);
+                    if (status != CY_U3P_SUCCESS)
+                        CyU3PDebugPrint(4, "CyU3PUsbSendEP0Data, error code = %d\n", status);
+                    break;
 
-        /* Handle requests addressed to the Video Streaming interface. */
-        if ((bTarget == CY_U3P_USB_TARGET_INTF) && (CY_U3P_GET_LSB (wIndex) == CY_FX_UVC_INTERFACE_VS))
-        {
-            isHandled = CyTrue;
-
-            switch (wValue)
-            {
-                /* As we have a single setting, we treat both PROBE and COMMIT control requests in the same way.
-                 * The commit controls sent down by the host are ignored, as we can only stream with a single
-                 * setting.
-                 */
-                case CY_FX_USB_UVC_VS_PROBE_CONTROL:
-                case CY_FX_USB_UVC_VS_COMMIT_CONTROL:
-                    {
-                        switch (bRequest)
-                        {
-                            /* We only have one functional setting. Keep returning the same as current, default
-                             * minimum and maximum. */
-                            case CY_FX_USB_UVC_GET_CUR_REQ:
-                            case CY_FX_USB_UVC_GET_DEF_REQ:
-                            case CY_FX_USB_UVC_GET_MIN_REQ:
-                            case CY_FX_USB_UVC_GET_MAX_REQ:
-                                status = CyU3PUsbSendEP0Data (CY_FX_UVC_MAX_PROBE_SETTING,
-                                        (uint8_t *)glProbeCtrl);
-                                if (status != CY_U3P_SUCCESS)
-                                {
-                                    CyU3PDebugPrint (4, "CyU3PUsbSendEP0Data, error code = %d\n", status);
-                                }
-                                break;
-
-                            case CY_FX_USB_UVC_SET_CUR_REQ:
-                                /* Disable the low power entry to optimize USB throughput */
-                                CyU3PUsbLPMDisable();
-
-                                /* Read the data out into a local buffer. We do not use this data in any way. */
-                                status = CyU3PUsbGetEP0Data (CY_FX_UVC_MAX_PROBE_SETTING_ALIGNED,
-                                        glCommitCtrl, &readCount);
-                                if (status != CY_U3P_SUCCESS)
-                                {
-                                    CyU3PDebugPrint (4, "CyU3PUsbGetEP0Data failed, error code = %d\n", status);
-                                }
-
-                                /* Check the read count. Expecting a count of CY_FX_UVC_MAX_PROBE_SETTING bytes. */
-                                if (readCount != (uint16_t)CY_FX_UVC_MAX_PROBE_SETTING)
-                                {
-                                    CyU3PDebugPrint (4, "Invalid number of bytes received in SET_CUR Request");
-                                }
-                                break;
-
-                            default:
-                                CyU3PUsbStall (0, CyTrue, CyFalse);
-                                break;
-                        }
-                    }
+                case CY_FX_USB_UVC_SET_CUR_REQ:
+                    CyU3PUsbLPMDisable();
+                    status = CyU3PUsbGetEP0Data(CY_FX_UVC_MAX_PROBE_SETTING_ALIGNED, glCommitCtrl, &readCount);
+                    if (status != CY_U3P_SUCCESS)
+                        CyU3PDebugPrint(4, "CyU3PUsbGetEP0Data failed, error code = %d\n", status);
+                    if (readCount != (uint16_t)CY_FX_UVC_MAX_PROBE_SETTING)
+                        CyU3PDebugPrint(4, "Invalid number of bytes received in SET_CUR Request");
                     break;
 
                 default:
-                    CyU3PUsbStall (0, CyTrue, CyFalse);
+                    CyU3PUsbStall(0, CyTrue, CyFalse);
                     break;
             }
-        }
+            break;
 
-        /* Don't try to stall the endpoint if we have already attempted data transfer. */
+        default:
+            CyU3PUsbStall(0, CyTrue, CyFalse);
+            break;
+    }
+    return isHandled;
+}
+
+static CyBool_t
+CyFxUVCApplnUSBSetupCB (
+        uint32_t setupdat0,
+        uint32_t setupdat1
+    )
+{
+    UsbSetup usbRqt;
+    usbRqt.raw.setupdat0 = setupdat0;
+    usbRqt.raw.setupdat1 = setupdat1;
+
+    logUsbSetup(usbRqt);
+
+    uint8_t bReqType = usbRqt.fields.bmRequestType;
+    uint8_t bType = (bReqType & CY_U3P_USB_TYPE_MASK);
+    uint8_t bTarget = (bReqType & CY_U3P_USB_TARGET_MASK);
+    uint8_t bRequest = usbRqt.fields.bRequest;
+    uint16_t wIndex = usbRqt.fields.wIndex;
+    uint16_t wValue = usbRqt.fields.wValue;
+    CyBool_t isHandled = CyFalse;
+
+    if (bType == CY_U3P_USB_STANDARD_RQT)
+    {
+        isHandled = CyFxUVCHandleStandardRequest(usbRqt);
+    }
+
+    if (bType == CY_U3P_USB_CLASS_RQT)
+    {
+        CyU3PDebugPrint(4, "UVC RQT: %x %x %x %x %x\r\n", bTarget, bRequest, CY_U3P_GET_MSB(wIndex),
+                        CY_U3P_GET_LSB(wIndex), wValue);
+
+        if (CY_U3P_GET_LSB(wIndex) == CY_FX_UVC_INTERFACE_VC)
+        {
+            isHandled = CyFxUVCHandleVCRequest(usbRqt) || isHandled;
+        }
+        if (CY_U3P_GET_LSB(wIndex) == CY_FX_UVC_INTERFACE_VS)
+        {
+            isHandled = CyFxUVCHandleVSRequest(usbRqt) || isHandled;
+        }
     }
 
     return isHandled;
@@ -407,7 +453,7 @@ CyFxUVCApplnUSBSetupCB (
  */
 CyBool_t
 CyFxApplnLPMRqtCB (
-        CyU3PUsbLinkPowerMode link_mode)
+        CyU3PUsbLinkPowerMode /*link_mode*/)
 {
     return CyTrue;
 }
@@ -419,10 +465,9 @@ void
 CyFxUVCApplnInit (void)
 {
     CyU3PEpConfig_t endPointConfig;
-    CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
 
     /* Start the USB functionality */
-    apiRetStatus = CyU3PUsbStart();
+    CyU3PReturnStatus_t apiRetStatus = CyU3PUsbStart();
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
         CyU3PDebugPrint (4, "USB Function Failed to Start, Error Code = %d\n",apiRetStatus);
@@ -440,87 +485,17 @@ CyFxUVCApplnInit (void)
     /* Register a callback to handle LPM requests from the USB 3.0 host. */
     CyU3PUsbRegisterLPMRequestCallback(CyFxApplnLPMRqtCB);    
     
-    /* Set the USB Enumeration descriptors */
-
-    /* Super speed device descriptor. */
-    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_SS_DEVICE_DESCR, 0, (uint8_t *)CyFxUSB30DeviceDscr);
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-        CyU3PDebugPrint (4, "USB set device descriptor failed, Error code = %d\n", apiRetStatus);
-        CyFxAppErrorHandler(apiRetStatus);
-    }
-
-    /* High speed device descriptor. */
-    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_HS_DEVICE_DESCR, 0, (uint8_t *)CyFxUSB20DeviceDscr);
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-        CyU3PDebugPrint (4, "USB set device descriptor failed, Error code = %d\n", apiRetStatus);
-        CyFxAppErrorHandler(apiRetStatus);
-    }
-
-    /* BOS descriptor */
-    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_SS_BOS_DESCR, 0, (uint8_t *)CyFxUSBBOSDscr);
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-        CyU3PDebugPrint (4, "USB set configuration descriptor failed, Error code = %d\n", apiRetStatus);
-        CyFxAppErrorHandler(apiRetStatus);
-    }
-
-    /* Device qualifier descriptor */
-    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_DEVQUAL_DESCR, 0, (uint8_t *)CyFxUSBDeviceQualDscr);
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-        CyU3PDebugPrint (4, "USB set device qualifier descriptor failed, Error code = %d\n", apiRetStatus);
-        CyFxAppErrorHandler(apiRetStatus);
-    }
-
-    /* Super speed configuration descriptor */
-    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_SS_CONFIG_DESCR, 0, (uint8_t *)CyFxUSBSSConfigDscr);
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-        CyU3PDebugPrint (4, "USB set configuration descriptor failed, Error code = %d\n", apiRetStatus);
-        CyFxAppErrorHandler(apiRetStatus);
-    }
-
-    /* High speed configuration descriptor */
-    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_HS_CONFIG_DESCR, 0, (uint8_t *)CyFxUSBHSConfigDscr);
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-        CyU3PDebugPrint (4, "USB Set Other Speed Descriptor failed, Error Code = %d\n", apiRetStatus);
-        CyFxAppErrorHandler(apiRetStatus);
-    }
-
-    /* Full speed configuration descriptor */
-    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_FS_CONFIG_DESCR, 0, (uint8_t *)CyFxUSBFSConfigDscr);
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-        CyU3PDebugPrint (4, "USB Set Configuration Descriptor failed, Error Code = %d\n", apiRetStatus);
-        CyFxAppErrorHandler(apiRetStatus);
-    }
-
-    /* String descriptor 0 */
-    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_STRING_DESCR, 0, (uint8_t *)CyFxUSBStringLangIDDscr);
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-        CyU3PDebugPrint (4, "USB set string descriptor failed, Error code = %d\n", apiRetStatus);
-        CyFxAppErrorHandler(apiRetStatus);
-    }
-
-    /* String descriptor 1 */
-    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_STRING_DESCR, 1, (uint8_t *)CyFxUSBManufactureDscr);
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-        CyU3PDebugPrint (4, "USB set string descriptor failed, Error code = %d\n", apiRetStatus);
-        CyFxAppErrorHandler(apiRetStatus);
-    }
-
-    /* String descriptor 2 */
-    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_STRING_DESCR, 2, (uint8_t *)CyFxUSBProductDscr);
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-        CyU3PDebugPrint (4, "USB set string descriptor failed, Error code = %d\n", apiRetStatus);
-        CyFxAppErrorHandler(apiRetStatus);
-    }
+    /* Set the USB Enumeration descriptors using the helper function */
+    CyFxUVCSetUsbDescOrFail(CY_U3P_USB_SET_SS_DEVICE_DESCR, 0, CyFxUSB30DeviceDscr);
+    CyFxUVCSetUsbDescOrFail(CY_U3P_USB_SET_HS_DEVICE_DESCR, 0, CyFxUSB20DeviceDscr);
+    CyFxUVCSetUsbDescOrFail(CY_U3P_USB_SET_SS_BOS_DESCR, 0, CyFxUSBBOSDscr);
+    CyFxUVCSetUsbDescOrFail(CY_U3P_USB_SET_DEVQUAL_DESCR, 0, CyFxUSBDeviceQualDscr);
+    CyFxUVCSetUsbDescOrFail(CY_U3P_USB_SET_SS_CONFIG_DESCR, 0, CyFxUSBSSConfigDscr);
+    CyFxUVCSetUsbDescOrFail(CY_U3P_USB_SET_HS_CONFIG_DESCR, 0, CyFxUSBHSConfigDscr);
+    CyFxUVCSetUsbDescOrFail(CY_U3P_USB_SET_FS_CONFIG_DESCR, 0, CyFxUSBFSConfigDscr);
+    CyFxUVCSetUsbDescOrFail(CY_U3P_USB_SET_STRING_DESCR, 0, CyFxUSBStringLangIDDscr);
+    CyFxUVCSetUsbDescOrFail(CY_U3P_USB_SET_STRING_DESCR, 1, CyFxUSBManufactureDscr);
+    CyFxUVCSetUsbDescOrFail(CY_U3P_USB_SET_STRING_DESCR, 2, CyFxUSBProductDscr);
 
     /* Since the status interrupt endpoint is not used in this application,
      * just enable the EP in the beginning. */
@@ -571,7 +546,7 @@ CyFxUVCAddHeader (
 /* Entry function for the UVC application thread. */
 void
 UVCAppThread_Entry (
-        uint32_t input)
+        uint32_t /*input*/)
 {
     CyU3PDmaBuffer_t dmaBuffer;
     uint16_t commitLength = 0;
@@ -624,7 +599,7 @@ UVCAppThread_Entry (
                 /* Short packet: End of frame. */
                 CyFxUVCAddHeader(dmaBuffer.buffer, CY_FX_UVC_HEADER_EOF);
 
-                commitLength = (glVidFrameLen[frameIndex] - frameOffset) + CY_FX_UVC_MAX_HEADER;
+                commitLength = static_cast<uint16_t>((glVidFrameLen[frameIndex] - frameOffset) + CY_FX_UVC_MAX_HEADER);
                 CyU3PMemCopy ((dmaBuffer.buffer + CY_FX_UVC_MAX_HEADER),
                         (uint8_t *)&glUVCVidFrames[frameStart + frameOffset],
                         (glVidFrameLen[frameIndex] - frameOffset));

@@ -70,11 +70,11 @@
    area which is used by the application code as well as the drivers to allocate thread
    stacks and other internal data structures.
  */
-#define CY_U3P_MEM_HEAP_BASE         (0x40058000)
-#define CY_U3P_MEM_HEAP_SIZE         (0x8000)
+constexpr uint32_t CY_U3P_MEM_HEAP_BASE = 0x40058000;
+constexpr uint32_t CY_U3P_MEM_HEAP_SIZE = 0x8000;
 
 /* Limit for the buffer heap area is the top of the SYSMEM RAM area. */
-#define CY_U3P_SYS_MEM_TOP           (0x40080000)
+constexpr uint32_t CY_U3P_SYS_MEM_TOP = 0x40080000;
 
 /*
    The buffer heap is used to obtain data buffers for DMA transfers in or out of
@@ -82,25 +82,25 @@
    of a reserved area in the SYSTEM RAM and ensures that all allocated DMA buffers
    are aligned to cache lines.
  */
-#define CY_U3P_BUFFER_HEAP_BASE         (CY_U3P_MEM_HEAP_BASE + CY_U3P_MEM_HEAP_SIZE)
-#define CY_U3P_BUFFER_HEAP_SIZE         ((CY_U3P_SYS_MEM_TOP) - (CY_U3P_BUFFER_HEAP_BASE))
+constexpr uint32_t CY_U3P_BUFFER_HEAP_BASE = CY_U3P_MEM_HEAP_BASE + CY_U3P_MEM_HEAP_SIZE;
+constexpr uint32_t CY_U3P_BUFFER_HEAP_SIZE = CY_U3P_SYS_MEM_TOP - CY_U3P_BUFFER_HEAP_BASE;
 
-#define CY_U3P_BUFFER_ALLOC_TIMEOUT     (10)
-#define CY_U3P_MEM_ALLOC_TIMEOUT        (10)
+constexpr uint32_t CY_U3P_BUFFER_ALLOC_TIMEOUT = 10;
+constexpr uint32_t CY_U3P_MEM_ALLOC_TIMEOUT = 10;
 
-#define CY_U3P_MEM_START_SIG            (0x4658334D)
-#define CY_U3P_MEM_END_SIG              (0x454E444D)
+constexpr uint32_t CY_U3P_MEM_START_SIG = 0x4658334D;
+constexpr uint32_t CY_U3P_MEM_END_SIG = 0x454E444D;
 
 /* Round a given value up to a multiple of n (assuming n is a power of 2). */
-#define ROUND_UP(s, n)                  (((s) + (n) - 1) & (~(n - 1)))
+constexpr uint32_t ROUND_UP(uint32_t s, uint32_t n) { return ((s + n - 1) & (~(n - 1))); }
 /* Convert size from BYTE to DWORD. */
-#define BYTE_TO_DWORD(s)                ((s) >> 2)
+constexpr uint32_t BYTE_TO_DWORD(uint32_t s) { return (s >> 2); }
 /* Cache line size for FX3. */
-#define FX3_CACHE_LINE_SZ               (32)
+constexpr uint32_t FX3_CACHE_LINE_SZ = 32;
 
 static CyBool_t         glMemPoolInit   = CyFalse;              /* Whether the memory allocator has been initialized. */
 static CyU3PBytePool    glMemBytePool;                          /* ThreadX Byte pool used in the CyU3PMem* functions. */
-static CyU3PDmaBufMgr_t glBufferManager = {{0}, 0, 0, 0, 0, 0}; /* Buffer manager used in the buffer alloc functions. */
+static CyU3PDmaBufMgr_t glBufferManager = {};                   /* Buffer manager used in the buffer alloc functions. */
 
 #ifdef CYFXTX_ERRORDETECTION
 
@@ -342,7 +342,7 @@ CyU3PMemFree (
 #endif
 
     /* Validity check for the pointer. */
-    if ((uint32_t)mem_p < CY_U3P_MEM_HEAP_BASE)
+    if (static_cast<uint32_t>(reinterpret_cast<uintptr_t>(mem_p)) < CY_U3P_MEM_HEAP_BASE)
         return;
 
 #ifdef CYFXTX_ERRORDETECTION
@@ -350,8 +350,8 @@ CyU3PMemFree (
        the required book-keeping as well. */
     if (glMemEnableChecks)
     {
-        block_p  = (MemBlockInfo *)((uint8_t *)mem_p - sizeof (MemBlockInfo));
-        endsig_p = (uint32_t *)((uint8_t *)block_p + block_p->alloc_size - sizeof (uint32_t));
+        block_p  = reinterpret_cast<MemBlockInfo *>(static_cast<uint8_t *>(mem_p) - sizeof (MemBlockInfo));
+        endsig_p = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(block_p) + block_p->alloc_size - sizeof (uint32_t));
 
         if ((block_p->start_sig != CY_U3P_MEM_START_SIG) || (*endsig_p != CY_U3P_MEM_END_SIG))
         {
@@ -372,7 +372,7 @@ CyU3PMemFree (
             glMemInUseList = block_p->prev_blk;
         }
 
-        mem_p = (void *)block_p;
+        mem_p = block_p;
     }
 #endif
 
@@ -862,7 +862,7 @@ CyU3PDmaBufferAlloc (
 #endif
 
     /* Find the number of cache lines required. The minimum size that can be handled is 2 cache lines. */
-    size = (blk_size <= FX3_CACHE_LINE_SZ) ? 2 : ((blk_size + FX3_CACHE_LINE_SZ - 1) / FX3_CACHE_LINE_SZ);
+    size = static_cast<uint16_t>((blk_size <= FX3_CACHE_LINE_SZ) ? 2 : ((blk_size + FX3_CACHE_LINE_SZ - 1) / FX3_CACHE_LINE_SZ));
 
     /* Search through the status array to find the first block that fits the need. */
     wordnum = glBufferManager.searchPos;
@@ -963,7 +963,7 @@ CyU3PDmaBufferFree (
     int      retVal = -1;
 
     /* Validity check for the pointer. */
-    if ((uint32_t)buffer < CY_U3P_BUFFER_HEAP_BASE)
+    if (static_cast<uint32_t>(reinterpret_cast<uintptr_t>(buffer)) < CY_U3P_BUFFER_HEAP_BASE)
         return retVal;
 
     /* Get the lock for the buffer manager. */
@@ -985,8 +985,8 @@ CyU3PDmaBufferFree (
     /* Update the structures used for leak checking. */
     if (glBufMgrEnableChecks)
     {
-        block_p = (MemBlockInfo *)((uint8_t *)buffer - sizeof (MemBlockInfo));
-        sig_p   = (uint32_t *)((uint8_t *)block_p + block_p->alloc_size - sizeof (uint32_t));
+        block_p = reinterpret_cast<MemBlockInfo *>(static_cast<uint8_t *>(buffer) - sizeof (MemBlockInfo));
+        sig_p   = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(block_p) + block_p->alloc_size - sizeof (uint32_t));
         if ((block_p->start_sig != CY_U3P_MEM_START_SIG) || (*sig_p != CY_U3P_MEM_END_SIG))
         {
             /* Notify the user that memory has been corrupted. */
@@ -1006,13 +1006,13 @@ CyU3PDmaBufferFree (
             glBufInUseList = block_p->prev_blk;
         }
 
-        buffer = (void *)block_p;
+        buffer = block_p;
     }
 #endif
 
     /* If the buffer address is within the range specified, count the number of consecutive ones and
        clear them. */
-    start = (uint32_t)buffer;
+    start = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(buffer));
     if ((start > glBufferManager.startAddr) && (start < (glBufferManager.startAddr + glBufferManager.regionSize)))
     {
         start = ((start - glBufferManager.startAddr) >> 5);

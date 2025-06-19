@@ -522,7 +522,7 @@ const uint8_t CyFxUSBProductDscr[] __attribute__ ((aligned (32))) =
 /* Place this buffer as the last buffer so that no other variable / code shares
  * the same cache line. Do not add any other variables / arrays in this file.
  * This will lead to variables sharing the same cache line. */
-const uint8_t CyFxUsbDscrAlignBuffer[32] __attribute__ ((aligned (32)));
+[[maybe_unused]] const uint8_t CyFxUsbDscrAlignBuffer[32] __attribute__ ((aligned (32))){};
 
 /* [ ] */
 
